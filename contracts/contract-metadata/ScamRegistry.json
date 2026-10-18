@@ -1,0 +1,1110 @@
+{
+  "contractAddress": "0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957",
+  "network": "ARC-TESTNET",
+  "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
+  "contract_code_path": "/home/user/app/contracts/ScamRegistry.sol",
+  "contract_compiled_code_path": "/home/user/app/contracts/out/ScamRegistry.sol/ScamRegistry.json",
+  "contract_network_and_links": {
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957"
+  },
+  "contract_deployments": [
+    {
+      "chain": "Arc Testnet",
+      "address": "0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957",
+      "txHash": "0x8e8798ee78583ad25decfd88969fa7dbacf16887a70cb26b11e201e7be392dca",
+      "deployedAt": "2026-10-18T14:47:46.662Z"
+    },
+    {
+      "chain": "Arc Testnet",
+      "address": "0x1e1617223e9576aa737ff44e2593b0481ae8588f",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x1e1617223e9576aa737ff44e2593b0481ae8588f",
+      "txHash": "0xd5a7dd3535f821c257a1240fda47739b5f1b4d2a340b0540c0a6bfc2eca11866",
+      "deployedAt": "2026-10-18T14:12:10.434Z"
+    },
+    {
+      "chain": "Arc Testnet",
+      "address": "0x0d5e8fd24dc54d916bece0ad28119b71a70f85b1",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x0d5e8fd24dc54d916bece0ad28119b71a70f85b1",
+      "txHash": "0x50e4ae38e0c2ffbe60cb81e3f0a7cbe894d6c4ce86d3987a4b0ef32f095b8a7b",
+      "deployedAt": "2026-10-18T00:16:23.077Z"
+    },
+    {
+      "chain": "Arc Testnet",
+      "address": "0x46bb1ec65bac7277c27f4c50985f7423f870a4a9",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x46bb1ec65bac7277c27f4c50985f7423f870a4a9",
+      "txHash": "0x0123260269f0d53beef919066d2f1fb9b7a1cf3584cc5c8044c4381a536a8c66",
+      "deployedAt": "2026-10-17T23:11:37.484Z"
+    },
+    {
+      "chain": "Arc Testnet",
+      "address": "0x88aa4969c4e6581549da40dcba227198a35056e6",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x88aa4969c4e6581549da40dcba227198a35056e6",
+      "txHash": "0x63cc0a5634f0fe90c4719731e83de88aff97c7f06765ac45f628ebe50e1144a6",
+      "deployedAt": "2026-10-17T22:57:17.961Z"
+    },
+    {
+      "chain": "Arc Testnet",
+      "address": "0x4168ed5d828ea97d47cc85e20279435460bc1c80",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x4168ed5d828ea97d47cc85e20279435460bc1c80",
+      "txHash": "0x2ddddccd4ebbbf5c64e16908fd49634d60d16c0451c33c8946e803fea454e880",
+      "deployedAt": "2026-10-17T14:42:09.562Z"
+    }
+  ],
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "initialOwner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_developer",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_initialFee",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "DEVELOPER_BPS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "PLATFORM_BPS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "REPORTER_BPS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "checkExists",
+      "inputs": [
+        {
+          "name": "query",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "found",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "reporter",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "claimRewards",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "deactivateRecord",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "developer",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getAllRecordKeys",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32[]",
+          "internalType": "bytes32[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getRecordByKey",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct ScamRegistry.ScamRecord",
+          "components": [
+            {
+              "name": "xHandle",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "walletAddress",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "evidenceUrl",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "reporter",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "timestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "active",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getRecordKeysPaginated",
+      "inputs": [
+        {
+          "name": "offset",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "limit",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "page",
+          "type": "bytes32[]",
+          "internalType": "bytes32[]"
+        },
+        {
+          "name": "total",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getRecordsByReporter",
+      "inputs": [
+        {
+          "name": "reporter",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32[]",
+          "internalType": "bytes32[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getReporter",
+      "inputs": [
+        {
+          "name": "wallet",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct ScamRegistry.Reporter",
+          "components": [
+            {
+              "name": "wallet",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "handle",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "registered",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "banned",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "totalSubmissions",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "totalRewardsEarned",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getReporterList",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address[]",
+          "internalType": "address[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "handleIndex",
+      "inputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "lookupAndPay",
+      "inputs": [
+        {
+          "name": "query",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "found",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "record",
+          "type": "tuple",
+          "internalType": "struct ScamRegistry.ScamRecord",
+          "components": [
+            {
+              "name": "xHandle",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "walletAddress",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "evidenceUrl",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "reporter",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "timestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "active",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "lookupFee",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "owner",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "pendingRewards",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "reactivateRecord",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "recordKeys",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "registerReporter",
+      "inputs": [
+        {
+          "name": "handle",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "renounceOwnership",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "reportScam",
+      "inputs": [
+        {
+          "name": "xHandle",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "walletAddress",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "evidenceUrl",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "reporterList",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "reporters",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "wallet",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "handle",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "registered",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "banned",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "totalSubmissions",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "totalRewardsEarned",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "scamRecords",
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "xHandle",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "walletAddress",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "evidenceUrl",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "reporter",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "setBanStatus",
+      "inputs": [
+        {
+          "name": "wallet",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "banned",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setLookupFee",
+      "inputs": [
+        {
+          "name": "newFee",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setTreasury",
+      "inputs": [
+        {
+          "name": "newTreasury",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "totalQueries",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "totalRevenue",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "transferOwnership",
+      "inputs": [
+        {
+          "name": "newOwner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "treasury",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "usdcToken",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "walletIndex",
+      "inputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "event",
+      "name": "LookupFeeUpdated",
+      "inputs": [
+        {
+          "name": "oldFee",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "newFee",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "LookupPerformed",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "searcher",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "fee",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "OwnershipTransferred",
+      "inputs": [
+        {
+          "name": "previousOwner",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newOwner",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ReporterBanned",
+      "inputs": [
+        {
+          "name": "wallet",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "banned",
+          "type": "bool",
+          "indexed": false,
+          "internalType": "bool"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ReporterRegistered",
+      "inputs": [
+        {
+          "name": "wallet",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "handle",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "RewardAccrued",
+      "inputs": [
+        {
+          "name": "reporter",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "RewardClaimed",
+      "inputs": [
+        {
+          "name": "reporter",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ScamDeactivated",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "xHandle",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "byAdmin",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ScamReactivated",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "xHandle",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "byAdmin",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ScamReported",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "xHandle",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "walletAddress",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "reporter",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TreasuryUpdated",
+      "inputs": [
+        {
+          "name": "oldTreasury",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newTreasury",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "error",
+      "name": "AlreadyActive",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "AlreadyInactive",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "AlreadyReported",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidFee",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotRegistered",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NothingToClaim",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "OwnableInvalidOwner",
+      "inputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "OwnableUnauthorizedAccount",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "RecordNotFound",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ReporterIsBanned",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ZeroAddress",
+      "inputs": []
+    }
+  ]
+}
