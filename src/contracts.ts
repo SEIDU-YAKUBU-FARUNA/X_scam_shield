@@ -1,8 +1,8 @@
 /**
  * ScamRegistry contract config.
- * Current deployment: Arc Testnet 0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957
+ * Current deployment: Arc Testnet v7 — 0x80d0263b9f6151b6257ca29b03fb2460d21d5d7a
  * owner = treasury wallet (0x7aDbb14b8dDF292AbFe9e7a28abc0433256f4048)
- * developer = immutable (0x4423ef244627b2f3d1D9587919b7c8864aBAB8dA)
+ * developer = mutable — updatable by developer wallet via setDeveloper()
  * setTreasury also calls _transferOwnership so owner() and treasury() stay in sync.
  */
 
@@ -92,6 +92,14 @@ export const SCAM_REGISTRY_ABI = [
       { name: 'wallet', type: 'address' },
       { name: 'banned', type: 'bool' },
     ],
+    outputs: [],
+  },
+  // Developer: update own wallet (only callable by current developer)
+  {
+    name: 'setDeveloper',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'newDeveloper', type: 'address' }],
     outputs: [],
   },
   // Admin: update treasury wallet (50% recipient)
@@ -252,7 +260,7 @@ export const SCAM_REGISTRY_ABI = [
       { name: 'total', type: 'uint256' },
     ],
   },
-  // Records by a specific reporter (newest first)
+  // Records by a specific reporter — O(1) via per-reporter index (newest first)
   {
     name: 'getRecordsByReporter',
     type: 'function',
@@ -260,7 +268,29 @@ export const SCAM_REGISTRY_ABI = [
     inputs: [{ name: 'reporter', type: 'address' }],
     outputs: [{ name: '', type: 'bytes32[]' }],
   },
+  // Paginated reporter list (offset, limit) → (page, total)
+  {
+    name: 'getReporterListPaginated',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'offset', type: 'uint256' },
+      { name: 'limit', type: 'uint256' },
+    ],
+    outputs: [
+      { name: 'page', type: 'address[]' },
+      { name: 'total', type: 'uint256' },
+    ],
+  },
   // Events
+  {
+    name: 'DeveloperUpdated',
+    type: 'event',
+    inputs: [
+      { name: 'oldDeveloper', type: 'address', indexed: true },
+      { name: 'newDeveloper', type: 'address', indexed: true },
+    ],
+  },
   {
     name: 'ScamReported',
     type: 'event',

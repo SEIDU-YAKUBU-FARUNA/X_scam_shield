@@ -1,12 +1,12 @@
 /**
- * ScamShield — Decentralized Scam Dictionary & Verification Marketplace
+ * ArcShield — Decentralized Scam Dictionary & Verification Marketplace
  * Built with Arc Studio on Arc Mainnet
  */
 
 import { useState } from 'react'
 import { useAccount, useReadContract } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
-import { Shield, Search, UserPlus, Settings } from 'lucide-react'
+import { Search, UserPlus, Settings } from 'lucide-react'
 import { SearchPanel } from './components/SearchPanel'
 import { RegisterPanel } from './components/RegisterPanel'
 import { AdminPanel } from './components/AdminPanel'
@@ -33,15 +33,31 @@ function Header({ tab, setTab, showAdmin }: { tab: Tab; setTab: (t: Tab) => void
       }}
     >
       <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
-        {/* Logo */}
+        {/* Logo — Arc Studio product mark */}
         <div className="flex items-center gap-2">
           <div
-            className="flex size-8 items-center justify-center rounded-xl"
-            style={{ background: 'var(--accent)' }}
+            className="flex size-9 items-center justify-center rounded-xl shadow-sm"
+            style={{ background: '#0f1f30' }}
           >
-            <Shield className="size-4 text-white" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M12 2L4 5.5V11C4 15.42 7.38 19.55 12 21C16.62 19.55 20 15.42 20 11V5.5L12 2Z"
+                fill="white"
+                fillOpacity="0.15"
+                stroke="white"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M9 12L11 14L15 10"
+                stroke="white"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </div>
-          <span className="display text-base font-bold" style={{ color: 'var(--ink)' }}>ScamShield</span>
+          <span className="display text-base font-bold" style={{ color: 'var(--ink)' }}>ArcShield</span>
           <span
             className="rounded-full px-2 py-0.5 text-xs font-semibold"
             style={{ background: 'rgba(18,45,69,0.08)', color: 'var(--muted)' }}
@@ -52,7 +68,7 @@ function Header({ tab, setTab, showAdmin }: { tab: Tab; setTab: (t: Tab) => void
         <ConnectKitButton />
       </div>
 
-      {/* Nav tabs — Admin only shown when treasury wallet is connected */}
+      {/* Nav tabs — Admin only shown when treasury or developer wallet is connected */}
       <div className="mx-auto mt-3 flex max-w-lg gap-1 rounded-2xl p-1" style={{ background: 'rgba(18,45,69,0.06)' }}>
         {nav.map(({ id, label, icon: Icon }) => (
           <button
@@ -97,16 +113,25 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('search')
   const { address, isConnected } = useAccount()
 
-  // Read treasury address to decide whether to show the Admin tab
+  // Read treasury + developer addresses to decide whether to show the Admin tab
   const { data: treasuryAddress } = useReadContract({
     address: SCAM_REGISTRY_ADDRESS,
     abi: SCAM_REGISTRY_ABI,
     functionName: 'treasury',
     chainId: ACTIVE_CHAIN_ID,
   })
+  const { data: developerAddress } = useReadContract({
+    address: SCAM_REGISTRY_ADDRESS,
+    abi: SCAM_REGISTRY_ABI,
+    functionName: 'developer',
+    chainId: ACTIVE_CHAIN_ID,
+  })
 
-  const isAdmin = isConnected && !!treasuryAddress &&
+  const isTreasury = isConnected && !!treasuryAddress &&
     address?.toLowerCase() === (treasuryAddress as string).toLowerCase()
+  const isDeveloper = isConnected && !!developerAddress &&
+    address?.toLowerCase() === (developerAddress as string).toLowerCase()
+  const isAdmin = isTreasury || isDeveloper
 
   // If admin tab was active and wallet disconnects / switches, fall back to Verify
   const safeTab: Tab = tab === 'admin' && !isAdmin ? 'search' : tab

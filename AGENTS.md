@@ -1,4 +1,4 @@
-# ScamShield — Decentralized Scam Registry
+# ArcShield — Decentralized Scam Registry
 
 ## Project Overview
 Decentralized scam dictionary and verification marketplace.
@@ -23,7 +23,8 @@ Built entirely in Arc Studio for the Arc Microgrants competition.
 | v2 | Arc Testnet | `0x88aa4969c4e6581549da40dcba227198a35056e6` | Deprecated |
 | v3 | Arc Testnet | `0x0d5e8fd24dc54d916bece0ad28119b71a70f85b1` | Deprecated |
 | v4 | Arc Testnet | `0x1e1617223e9576aa737ff44e2593b0481ae8588f` | Deprecated |
-| v5 | Arc Testnet | `0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957` | **Active (testnet)** |
+| v5 | Arc Testnet | `0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957` | Deprecated |
+| v6 | Arc Testnet | `0xa93a6225c727e5e00924d4c2538caa1217e8be53` | **Active (testnet)** |
 | v1 | Arc Mainnet | (pending) | — |
 
 ## Key Addresses
@@ -100,7 +101,7 @@ All audit findings resolved:
 3. `checkExists()` returns metadata only — evidence gated behind paid `lookupAndPay()`
 4. Pull-payment for reporter rewards (`claimRewards`) + CEI pattern in `lookupAndPay`
 5. Empty-wallet collision fixed — `walletIndex` only set when wallet is non-empty
-6. `developer` is immutable — no setter exists, baked into bytecode forever
+6. `developer` is mutable — `setDeveloper()` callable only by current developer wallet, not by owner/treasury
 7. `setTreasury` also calls `_transferOwnership` — `owner()` and `treasury()` always in sync
 
 ## Microgrant Submission Checklist

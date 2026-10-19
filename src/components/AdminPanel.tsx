@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi'
 import { createPublicClient, http, defineChain } from 'viem'
 import { ConnectKitButton } from 'connectkit'
@@ -8,6 +8,8 @@ import { SCAM_REGISTRY_ABI, SCAM_REGISTRY_ADDRESS } from '../contracts'
 import { formatUsdc, parseUsdc } from '../onchain-money'
 import { requireChain, buildTxExplorerUrl } from '../onchain-facts'
 import { ACTIVE_CHAIN_ID, NETWORK_LABEL } from '../config'
+
+const PAGE_SIZE = 50n
 
 const glass = {
   card: {
@@ -67,36 +69,42 @@ export function AdminPanel() {
 
   const [newFeeInput, setNewFeeInput] = useState('')
   const [newTreasury, setNewTreasury] = useState('')
+  const [newDevInput, setNewDevInput] = useState('')
 
   // Per-action pending tracking — stores the wallet/key currently being actioned
   const [pendingBanWallet, setPendingBanWallet] = useState<string | null>(null)
   const [pendingDeactivateKey, setPendingDeactivateKey] = useState<string | null>(null)
   const [pendingReactivateKey, setPendingReactivateKey] = useState<string | null>(null)
 
-  // All records loaded from chain (paginated via getRecordKeysPaginated)
+  // Records: lazy-loaded page by page
   const allRecordsRef = useRef<RecordWithKey[]>([])
   const [recordsVersion, setRecordsVersion] = useState(0)
   const [isLoadingRecords, setIsLoadingRecords] = useState(false)
-  const [recordsTotal, setRecordsTotal] = useState(0)
-  const [recordsLoaded, setRecordsLoaded] = useState(0)
+  const [recordsOffset, setRecordsOffset] = useState(0)
+  const [recordsTotal, setRecordsTotal] = useState<number | null>(null)
 
-  // All reporters
-  const reportersRef = useRef<ReporterEntry[]>([])
+  // Reporters: lazy-loaded page by page
+  const allReportersRef = useRef<ReporterEntry[]>([])
   const [reportersVersion, setReportersVersion] = useState(0)
   const [isLoadingReporters, setIsLoadingReporters] = useState(false)
+  const [reportersOffset, setReportersOffset] = useState(0)
+  const [reportersTotal, setReportersTotal] = useState<number | null>(null)
 
   const isWrongChain = isConnected && chainId !== ACTIVE_CHAIN_ID
 
-  // Gate: treasury = owner
+  // Gate: either treasury or developer can access
   const { data: treasuryAddress, refetch: refetchTreasury } = useReadContract({
-    address: SCAM_REGISTRY_ADDRESS,
-    abi: SCAM_REGISTRY_ABI,
-    functionName: 'treasury',
-    chainId: ACTIVE_CHAIN_ID,
+    address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI, functionName: 'treasury', chainId: ACTIVE_CHAIN_ID,
+  })
+  const { data: developerAddress, refetch: refetchDeveloper } = useReadContract({
+    address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI, functionName: 'developer', chainId: ACTIVE_CHAIN_ID,
   })
 
-  const isOwner = isConnected && !!treasuryAddress &&
+  const isTreasury = isConnected && !!treasuryAddress &&
     address?.toLowerCase() === (treasuryAddress as string).toLowerCase()
+  const isDeveloper = isConnected && !!developerAddress &&
+    address?.toLowerCase() === (developerAddress as string).toLowerCase()
+  const isOwner = isTreasury || isDeveloper
 
   // Stats
   const { data: lookupFeeRaw, refetch: refetchFee } = useReadContract({
@@ -119,6 +127,9 @@ export function AdminPanel() {
   const { writeContract: setTreas, data: treasTxHash, isPending: isTreasPending, error: treasError, reset: resetTreas } = useWriteContract()
   const { isLoading: isTreasConfirming, isSuccess: isTreasSuccess } = useWaitForTransactionReceipt({ hash: treasTxHash })
 
+  const { writeContract: setDev, data: devTxHash, isPending: isDevPending, error: devError, reset: resetDev } = useWriteContract()
+  const { isLoading: isDevConfirming, isSuccess: isDevSuccess } = useWaitForTransactionReceipt({ hash: devTxHash })
+
   const { writeContract: setBan, data: banTxHash, isPending: isBanPending, error: banError } = useWriteContract()
   const { isLoading: isBanConfirming, isSuccess: isBanSuccess } = useWaitForTransactionReceipt({ hash: banTxHash })
 
@@ -128,16 +139,106 @@ export function AdminPanel() {
   const { writeContract: reactivate, data: reactivateTxHash, isPending: isReactivatePending, error: reactivateError } = useWriteContract()
   const { isLoading: isReactivateConfirming, isSuccess: isReactivateSuccess } = useWaitForTransactionReceipt({ hash: reactivateTxHash })
 
-  // Clear per-card pending state once the tx confirms or errors
+  // ── Lazy record loader — fetches one page (PAGE_SIZE) at a time ─────
+  const loadRecordPage = useCallback((offset: number, reset = false) => {
+    setIsLoadingRecords(true)
+    const client = getPublicClient()
+    void (async () => {
+      try {
+        const result = await client.readContract({
+          address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
+          functionName: 'getRecordKeysPaginated',
+          args: [BigInt(offset), PAGE_SIZE],
+        }) as [`0x${string}`[], bigint]
+        const [page, total] = result
+        setRecordsTotal(Number(total))
+
+        // Fetch each record + reporter handle in parallel
+        const fetched = await Promise.all(page.map(async (key) => {
+          const rec = await client.readContract({
+            address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
+            functionName: 'getRecordByKey', args: [key],
+          }) as ScamRecord
+          let reporterHandle: string | undefined
+          try {
+            const r = await client.readContract({
+              address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
+              functionName: 'getReporter', args: [rec.reporter as `0x${string}`],
+            }) as ReporterEntry
+            if (r.registered) reporterHandle = r.handle
+          } catch { /* ignore */ }
+          return { ...rec, key, reporterHandle }
+        }))
+
+        // Sort newest-first within this batch then merge
+        fetched.sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
+        if (reset) {
+          allRecordsRef.current = fetched
+        } else {
+          allRecordsRef.current = [...allRecordsRef.current, ...fetched]
+        }
+        setRecordsOffset(offset + fetched.length)
+        setRecordsVersion(v => v + 1)
+      } catch (e) {
+        console.error('Failed to load records', e)
+        toast.error('Failed to load records. Try refreshing.')
+      } finally {
+        setIsLoadingRecords(false)
+      }
+    })()
+  }, [])
+
+  // ── Lazy reporter loader — fetches one page (PAGE_SIZE) at a time ───
+  const loadReporterPage = useCallback((offset: number, reset = false) => {
+    setIsLoadingReporters(true)
+    const client = getPublicClient()
+    void (async () => {
+      try {
+        const result = await client.readContract({
+          address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
+          functionName: 'getReporterListPaginated',
+          args: [BigInt(offset), PAGE_SIZE],
+        }) as [`0x${string}`[], bigint]
+        const [page, total] = result
+        setReportersTotal(Number(total))
+
+        const reporters = await Promise.all(page.map(addr =>
+          client.readContract({
+            address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
+            functionName: 'getReporter', args: [addr],
+          }) as Promise<ReporterEntry>
+        ))
+        reporters.sort((a, b) => Number(b.totalSubmissions) - Number(a.totalSubmissions))
+
+        if (reset) {
+          allReportersRef.current = reporters
+        } else {
+          allReportersRef.current = [...allReportersRef.current, ...reporters]
+        }
+        setReportersOffset(offset + reporters.length)
+        setReportersVersion(v => v + 1)
+      } catch (e) {
+        console.error('Failed to load reporters', e)
+        toast.error('Failed to load reporters. Try refreshing.')
+      } finally {
+        setIsLoadingReporters(false)
+      }
+    })()
+  }, [])
+
+  // Load first page once owner confirmed
+  const loadedRef = useRef(false)
   useEffect(() => {
-    if (isBanSuccess || banError) setPendingBanWallet(null)
-  }, [isBanSuccess, banError])
-  useEffect(() => {
-    if (isDeactivateSuccess || deactivateError) setPendingDeactivateKey(null)
-  }, [isDeactivateSuccess, deactivateError])
-  useEffect(() => {
-    if (isReactivateSuccess || reactivateError) setPendingReactivateKey(null)
-  }, [isReactivateSuccess, reactivateError])
+    if (!isOwner || loadedRef.current) return
+    loadedRef.current = true
+    loadRecordPage(0, true)
+    loadReporterPage(0, true)
+  }, [isOwner, loadRecordPage, loadReporterPage])
+
+  // Per-card busy state: clear when tx confirms or errors
+  useEffect(() => { if (isBanSuccess || banError) setPendingBanWallet(null) }, [isBanSuccess, banError])
+  useEffect(() => { if (isDeactivateSuccess || deactivateError) setPendingDeactivateKey(null) }, [isDeactivateSuccess, deactivateError])
+  useEffect(() => { if (isReactivateSuccess || reactivateError) setPendingReactivateKey(null) }, [isReactivateSuccess, reactivateError])
 
   // Success toasts + reload
   useEffect(() => { if (isFeeSuccess) { toast.success('Lookup fee updated!'); void refetchFee() } }, [isFeeSuccess, refetchFee])
@@ -147,115 +248,35 @@ export function AdminPanel() {
       void refetchTreasury()
     }
   }, [isTreasSuccess, refetchTreasury])
+  useEffect(() => {
+    if (isDevSuccess) {
+      toast.success('Developer wallet updated!')
+      void refetchDeveloper()
+    }
+  }, [isDevSuccess, refetchDeveloper])
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (isBanSuccess) { toast.success('Ban status updated!'); loadReporters() } }, [isBanSuccess])
+  useEffect(() => { if (isBanSuccess) { toast.success('Ban status updated!'); loadReporterPage(0, true); setReportersOffset(0) } }, [isBanSuccess])
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (isDeactivateSuccess) { toast.success('Record deactivated.'); loadAllRecords() } }, [isDeactivateSuccess])
+  useEffect(() => { if (isDeactivateSuccess) { toast.success('Record deactivated.'); loadRecordPage(0, true); setRecordsOffset(0) } }, [isDeactivateSuccess])
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (isReactivateSuccess) { toast.success('Record reactivated!'); loadAllRecords() } }, [isReactivateSuccess])
+  useEffect(() => { if (isReactivateSuccess) { toast.success('Record reactivated!'); loadRecordPage(0, true); setRecordsOffset(0) } }, [isReactivateSuccess])
 
   // Error toasts
   useEffect(() => { if (feeError) toast.error(feeError.message.split('\n')[0].slice(0, 100)) }, [feeError])
   useEffect(() => { if (treasError) toast.error(treasError.message.split('\n')[0].slice(0, 100)) }, [treasError])
+  useEffect(() => { if (devError) toast.error(devError.message.split('\n')[0].slice(0, 100)) }, [devError])
   useEffect(() => { if (banError) toast.error(banError.message.split('\n')[0].slice(0, 100)) }, [banError])
   useEffect(() => { if (deactivateError) toast.error(deactivateError.message.split('\n')[0].slice(0, 100)) }, [deactivateError])
   useEffect(() => { if (reactivateError) toast.error(reactivateError.message.split('\n')[0].slice(0, 100)) }, [reactivateError])
 
-  // Load all records using paginated view — 50 per page, resolves reporter handles in parallel
-  const loadAllRecords = () => {
-    setIsLoadingRecords(true)
-    const client = getPublicClient()
-    const PAGE = 50n
-    void (async () => {
-      try {
-        const records: RecordWithKey[] = []
-        let offset = 0n
-        let total = 0n
-        // First page also tells us the total
-        do {
-          const result = await client.readContract({
-            address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
-            functionName: 'getRecordKeysPaginated',
-            args: [offset, PAGE],
-          }) as [`0x${string}`[], bigint]
-          const [page, tot] = result
-          total = tot
-          setRecordsTotal(Number(total))
-          // Fetch each record + reporter handle in parallel
-          const fetched = await Promise.all(page.map(async (key) => {
-            const rec = await client.readContract({
-              address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
-              functionName: 'getRecordByKey', args: [key],
-            }) as ScamRecord
-            let reporterHandle: string | undefined
-            try {
-              const r = await client.readContract({
-                address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
-                functionName: 'getReporter', args: [rec.reporter as `0x${string}`],
-              }) as ReporterEntry
-              if (r.registered) reporterHandle = r.handle
-            } catch { /* ignore */ }
-            return { ...rec, key, reporterHandle }
-          }))
-          records.push(...fetched)
-          setRecordsLoaded(records.length)
-          offset += PAGE
-        } while (offset < total)
-        // Sort newest first
-        records.sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
-        allRecordsRef.current = records
-        setRecordsVersion(v => v + 1)
-      } catch (e) {
-        console.error('Failed to load records', e)
-        toast.error('Failed to load records. Try refreshing.')
-      } finally {
-        setIsLoadingRecords(false)
-      }
-    })()
-  }
-
-  // Load all reporters
-  const loadReporters = () => {
-    setIsLoadingReporters(true)
-    const client = getPublicClient()
-    void (async () => {
-      try {
-        const addrs = await client.readContract({
-          address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI, functionName: 'getReporterList',
-        }) as `0x${string}`[]
-        const reporters = await Promise.all(addrs.map(addr =>
-          client.readContract({
-            address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
-            functionName: 'getReporter', args: [addr],
-          }) as Promise<ReporterEntry>
-        ))
-        reporters.sort((a, b) => Number(b.totalSubmissions) - Number(a.totalSubmissions))
-        reportersRef.current = reporters
-        setReportersVersion(v => v + 1)
-      } catch (e) {
-        console.error('Failed to load reporters', e)
-      } finally {
-        setIsLoadingReporters(false)
-      }
-    })()
-  }
-
-  // Load on mount once owner confirmed
-  const loadedRef = useRef(false)
-  useEffect(() => {
-    if (!isOwner || loadedRef.current) return
-    loadedRef.current = true
-    loadAllRecords()
-    loadReporters()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOwner])
-
-  const formattedFee = lookupFeeRaw ? formatUsdc(lookupFeeRaw) : '—'
+  const formattedFee     = lookupFeeRaw ? formatUsdc(lookupFeeRaw) : '—'
   const formattedRevenue = totalRevenueRaw ? formatUsdc(totalRevenueRaw) : '0.00'
-  const allRecords = recordsVersion >= 0 ? allRecordsRef.current : []
-  const allReporters = reportersVersion >= 0 ? reportersRef.current : []
-  const activeRecords = allRecords.filter(r => r.active)
-  const topReporters = [...allReporters].slice(0, 5)
+  const allRecords       = recordsVersion >= 0 ? allRecordsRef.current : []
+  const allReporters     = reportersVersion >= 0 ? allReportersRef.current : []
+  const activeRecords    = allRecords.filter(r => r.active)
+  const topReporters     = [...allReporters].slice(0, 5)
+  const hasMoreRecords   = recordsTotal !== null && recordsOffset < recordsTotal
+  const hasMoreReporters = reportersTotal !== null && reportersOffset < reportersTotal
 
   const handleSetFee = () => {
     if (!newFeeInput) return
@@ -266,10 +287,17 @@ export function AdminPanel() {
     } catch { toast.error('Invalid fee amount.') }
   }
 
+  const handleSetDeveloper = () => {
+    if (!newDevInput.trim()) return
+    if (isWrongChain) { switchChain({ chainId: ACTIVE_CHAIN_ID }); return }
+    if (!window.confirm(`Update developer wallet to ${newDevInput.trim()}?\n\nYou will lose developer admin access from your current wallet.`)) return
+    setDev({ address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI, functionName: 'setDeveloper', args: [newDevInput.trim() as `0x${string}`], chainId: ACTIVE_CHAIN_ID })
+  }
+
   const handleSetTreasury = () => {
     if (!newTreasury.trim()) return
     if (isWrongChain) { switchChain({ chainId: ACTIVE_CHAIN_ID }); return }
-    if (!window.confirm(`Update treasury to ${newTreasury.trim()}?\n\nIMPORTANT: This also transfers admin access to the new wallet. Make sure this address is correct — you will lose admin access from your current wallet.`)) return
+    if (!window.confirm(`Update treasury to ${newTreasury.trim()}?\n\nIMPORTANT: This transfers admin access to the new wallet. Make sure this address is correct.`)) return
     setTreas({ address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI, functionName: 'setTreasury', args: [newTreasury.trim() as `0x${string}`], chainId: ACTIVE_CHAIN_ID })
   }
 
@@ -294,11 +322,12 @@ export function AdminPanel() {
   }
 
   // ── Gate screens ──────────────────────────────────────────────────
+
   if (!isConnected) {
     return (
       <div className="flex flex-col items-center gap-4 rounded-3xl p-8" style={glass.card}>
         <Shield className="size-8" style={{ color: 'var(--accent)' }} />
-        <p className="text-sm" style={{ color: 'var(--muted)' }}>Connect the treasury wallet to access the admin panel.</p>
+        <p className="text-sm" style={{ color: 'var(--muted)' }}>Connect the treasury or developer wallet to access the admin panel.</p>
         <ConnectKitButton />
       </div>
     )
@@ -319,15 +348,21 @@ export function AdminPanel() {
     return (
       <div className="flex flex-col items-center gap-3 rounded-3xl p-8" style={glass.card}>
         <Shield className="size-8" style={{ color: 'var(--subtle)' }} />
-        <p className="text-sm" style={{ color: 'var(--muted)' }}>This panel is restricted to the treasury wallet.</p>
-        <p className="mono text-xs" style={{ color: 'var(--subtle)' }}>
-          Connect: {treasuryAddress ? `${(treasuryAddress as string).slice(0, 6)}...${(treasuryAddress as string).slice(-4)}` : '—'}
-        </p>
+        <p className="text-sm" style={{ color: 'var(--muted)' }}>This panel is restricted to the treasury or developer wallet.</p>
+        <div className="flex flex-col gap-1 text-center">
+          <p className="mono text-xs" style={{ color: 'var(--subtle)' }}>
+            Treasury: {treasuryAddress ? `${(treasuryAddress as string).slice(0, 6)}...${(treasuryAddress as string).slice(-4)}` : '—'}
+          </p>
+          <p className="mono text-xs" style={{ color: 'var(--subtle)' }}>
+            Developer: {developerAddress ? `${(developerAddress as string).slice(0, 6)}...${(developerAddress as string).slice(-4)}` : '—'}
+          </p>
+        </div>
       </div>
     )
   }
 
-  // ── Admin UI ──────────────────────────────────────────────────────
+  // ── Admin UI ─────────────────────────────────────────────────────
+
   return (
     <div className="flex flex-col gap-5">
 
@@ -336,83 +371,123 @@ export function AdminPanel() {
         <div className="mb-4 flex items-center gap-2">
           <Shield className="size-5" style={{ color: 'var(--accent)' }} />
           <span className="display text-xl font-bold" style={{ color: 'var(--ink)' }}>Admin Dashboard</span>
+          <span className="ml-auto rounded-full px-2.5 py-1 text-xs font-semibold"
+            style={{ background: isTreasury ? 'rgba(26,128,71,0.1)' : 'rgba(18,45,69,0.07)', color: isTreasury ? 'var(--success)' : 'var(--subtle)' }}>
+            {isTreasury ? 'Treasury' : 'Developer'} access
+          </span>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Active Records" value={String(activeRecords.length)} />
-          <StatCard label="Total Queries" value={String(totalQueriesRaw ?? 0)} />
-          <StatCard label="Total Fees Collected" value={`$${formattedRevenue}`} />
-          <StatCard label="Current Fee" value={`$${formattedFee}`} />
+          <StatCard label="Active Records" value={recordsTotal !== null ? String(activeRecords.length) : '…'} />
+          <StatCard label="Total Queries" value={String(totalQueriesRaw ?? '…')} />
+          <StatCard label="Total Fees Collected" value={totalRevenueRaw ? `$${formattedRevenue}` : '…'} />
+          <StatCard label="Current Fee" value={lookupFeeRaw ? `$${formattedFee}` : '…'} />
         </div>
       </div>
 
-      {/* Fee management */}
+      {/* Lookup Fee — treasury can update, developer view-only */}
       <div className="rounded-2xl p-5" style={glass.card}>
         <div className="mb-3 flex items-center gap-2">
           <DollarSign className="size-4" style={{ color: 'var(--accent)' }} />
           <span className="display text-sm font-bold" style={{ color: 'var(--ink)' }}>Lookup Fee</span>
+          {isDeveloper && !isTreasury && (
+            <span className="ml-auto rounded-full px-2 py-0.5 text-xs" style={{ background: 'rgba(18,45,69,0.07)', color: 'var(--subtle)' }}>View only</span>
+          )}
         </div>
         <p className="mb-3 text-xs" style={{ color: 'var(--muted)' }}>
           Current: <span className="font-semibold tabular-nums" style={{ color: 'var(--ink)' }}>${formattedFee} USDC</span>. Split is always 50% treasury / 30% developer / 20% reporter.
         </p>
-        <div className="flex gap-2">
-          <input type="number" min="0.01" step="0.01" value={newFeeInput}
-            onChange={(e) => { setNewFeeInput(e.target.value); if (isFeeSuccess) resetFee() }}
-            placeholder="New fee (e.g. 5.00)"
-            className="flex-1 rounded-xl px-4 py-3 text-sm outline-none"
-            style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(18,45,69,0.12)', color: 'var(--ink)' }} />
-          <button onClick={handleSetFee} disabled={!newFeeInput || isFeePending || isFeeConfirming}
-            className="flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ background: 'var(--accent)' }}>
-            {isFeePending || isFeeConfirming ? <Loader2 className="size-4 animate-spin" /> : isFeeSuccess ? <CheckCircle className="size-4" /> : null}
-            {isFeePending ? 'Confirm…' : isFeeConfirming ? 'Saving…' : isFeeSuccess ? 'Updated' : 'Update'}
-          </button>
-        </div>
+        {isTreasury && (
+          <div className="flex gap-2">
+            <input type="number" min="0.01" step="0.01" value={newFeeInput}
+              onChange={(e) => { setNewFeeInput(e.target.value); if (isFeeSuccess) resetFee() }}
+              placeholder="New fee (e.g. 5.00)"
+              className="flex-1 rounded-xl px-4 py-3 text-sm outline-none"
+              style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(18,45,69,0.12)', color: 'var(--ink)' }} />
+            <button onClick={handleSetFee} disabled={!newFeeInput || isFeePending || isFeeConfirming}
+              className="flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ background: 'var(--accent)' }}>
+              {isFeePending || isFeeConfirming ? <Loader2 className="size-4 animate-spin" /> : isFeeSuccess ? <CheckCircle className="size-4" /> : null}
+              {isFeePending ? 'Confirm…' : isFeeConfirming ? 'Saving…' : isFeeSuccess ? 'Updated' : 'Update'}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Developer wallet — read-only, permanent */}
+      {/* Developer Wallet — developer can update own wallet; treasury sees read-only */}
       <div className="rounded-2xl p-5" style={glass.card}>
         <div className="mb-2 flex items-center gap-2">
           <Wallet className="size-4" style={{ color: 'var(--accent)' }} />
-          <span className="display text-sm font-bold" style={{ color: 'var(--ink)' }}>Developer Wallet (30%) — Permanent</span>
+          <span className="display text-sm font-bold" style={{ color: 'var(--ink)' }}>Developer Wallet (30%)</span>
+          {isTreasury && !isDeveloper && (
+            <span className="ml-auto rounded-full px-2 py-0.5 text-xs" style={{ background: 'rgba(18,45,69,0.07)', color: 'var(--subtle)' }}>View only</span>
+          )}
         </div>
-        <p className="text-xs" style={{ color: 'var(--muted)' }}>This address is immutable and cannot be changed after deploy.</p>
-        <p className="mono mt-2 text-xs break-all rounded-xl px-4 py-3"
-          style={{ background: 'rgba(18,45,69,0.04)', border: '1px solid rgba(18,45,69,0.08)', color: 'var(--ink)' }}>
-          {currentDeveloper ? String(currentDeveloper) : '—'}
+        <p className="mb-2 mono text-xs break-all" style={{ color: 'var(--muted)' }}>
+          Current: {currentDeveloper ? String(currentDeveloper) : '—'}
         </p>
+        {isDeveloper && (
+          <>
+            <div className="mb-2 flex items-start gap-2 rounded-xl px-3 py-2.5"
+              style={{ background: 'rgba(186,43,76,0.05)', border: '1px solid rgba(186,43,76,0.15)' }}>
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--danger)' }} />
+              <p className="text-xs" style={{ color: 'var(--danger)' }}>
+                Updating your wallet means you lose developer access from your current wallet.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <input type="text" value={newDevInput} onChange={(e) => { setNewDevInput(e.target.value); if (isDevSuccess) resetDev() }}
+                placeholder="New 0x address…"
+                className="mono flex-1 rounded-xl px-4 py-3 text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(18,45,69,0.12)', color: 'var(--ink)' }} />
+              <button onClick={handleSetDeveloper} disabled={!newDevInput.trim() || isDevPending || isDevConfirming}
+                className="flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ background: 'var(--accent)' }}>
+                {isDevPending || isDevConfirming ? <Loader2 className="size-4 animate-spin" /> : isDevSuccess ? <CheckCircle className="size-4" /> : null}
+                {isDevPending ? 'Confirm…' : isDevConfirming ? 'Saving…' : isDevSuccess ? 'Updated' : 'Update'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Treasury wallet */}
+      {/* Treasury Wallet — treasury can update; developer sees read-only */}
       <div className="rounded-2xl p-5" style={glass.card}>
         <div className="mb-3 flex items-center gap-2">
           <Wallet className="size-4" style={{ color: 'var(--accent)' }} />
           <span className="display text-sm font-bold" style={{ color: 'var(--ink)' }}>Treasury Wallet (50%)</span>
+          {isDeveloper && !isTreasury && (
+            <span className="ml-auto rounded-full px-2 py-0.5 text-xs" style={{ background: 'rgba(18,45,69,0.07)', color: 'var(--subtle)' }}>View only</span>
+          )}
         </div>
         <p className="mb-3 mono text-xs break-all" style={{ color: 'var(--muted)' }}>
           Current: {treasuryAddress ? String(treasuryAddress) : '—'}
         </p>
-        <div className="mb-2 flex items-start gap-2 rounded-xl px-3 py-2.5"
-          style={{ background: 'rgba(186,43,76,0.05)', border: '1px solid rgba(186,43,76,0.15)' }}>
-          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--danger)' }} />
-          <p className="text-xs" style={{ color: 'var(--danger)' }}>
-            Updating treasury also transfers admin access to the new wallet. You will lose admin access from your current wallet.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <input type="text" value={newTreasury} onChange={(e) => { setNewTreasury(e.target.value); if (isTreasSuccess) resetTreas() }}
-            placeholder="New 0x address…"
-            className="mono flex-1 rounded-xl px-4 py-3 text-sm outline-none"
-            style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(18,45,69,0.12)', color: 'var(--ink)' }} />
-          <button onClick={handleSetTreasury} disabled={!newTreasury.trim() || isTreasPending || isTreasConfirming}
-            className="flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ background: 'var(--accent)' }}>
-            {isTreasPending || isTreasConfirming ? <Loader2 className="size-4 animate-spin" /> : isTreasSuccess ? <CheckCircle className="size-4" /> : null}
-            {isTreasPending ? 'Confirm…' : isTreasConfirming ? 'Saving…' : isTreasSuccess ? 'Updated' : 'Update'}
-          </button>
-        </div>
+        {isTreasury && (
+          <>
+            <div className="mb-2 flex items-start gap-2 rounded-xl px-3 py-2.5"
+              style={{ background: 'rgba(186,43,76,0.05)', border: '1px solid rgba(186,43,76,0.15)' }}>
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--danger)' }} />
+              <p className="text-xs" style={{ color: 'var(--danger)' }}>
+                Updating treasury also transfers admin access to the new wallet. You will lose admin access from your current wallet.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <input type="text" value={newTreasury} onChange={(e) => { setNewTreasury(e.target.value); if (isTreasSuccess) resetTreas() }}
+                placeholder="New 0x address…"
+                className="mono flex-1 rounded-xl px-4 py-3 text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(18,45,69,0.12)', color: 'var(--ink)' }} />
+              <button onClick={handleSetTreasury} disabled={!newTreasury.trim() || isTreasPending || isTreasConfirming}
+                className="flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ background: 'var(--accent)' }}>
+                {isTreasPending || isTreasConfirming ? <Loader2 className="size-4 animate-spin" /> : isTreasSuccess ? <CheckCircle className="size-4" /> : null}
+                {isTreasPending ? 'Confirm…' : isTreasConfirming ? 'Saving…' : isTreasSuccess ? 'Updated' : 'Update'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* All records — paginated load, per-record action state */}
+      {/* All records — lazy-loaded, 50 per page */}
       <div className="rounded-2xl p-5" style={glass.card}>
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -420,17 +495,13 @@ export function AdminPanel() {
             <span className="display text-sm font-bold" style={{ color: 'var(--ink)' }}>All Scam Records</span>
           </div>
           <div className="flex items-center gap-2">
-            {isLoadingRecords && (
-              <span className="text-xs" style={{ color: 'var(--muted)' }}>
-                <Loader2 className="inline size-3 animate-spin mr-1" />
-                {recordsLoaded}/{recordsTotal}
-              </span>
-            )}
+            {isLoadingRecords && <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--subtle)' }} />}
             <span className="rounded-full px-2.5 py-0.5 text-xs font-bold"
               style={{ background: 'rgba(186,43,76,0.1)', color: 'var(--danger)' }}>
-              {activeRecords.length} active
+              {recordsTotal !== null ? `${activeRecords.length}/${recordsTotal} loaded` : '…'}
             </span>
-            <button onClick={loadAllRecords} className="flex items-center gap-1 text-xs" style={{ color: 'var(--accent)' }}>
+            <button onClick={() => { setRecordsOffset(0); loadRecordPage(0, true) }}
+              className="flex items-center gap-1 text-xs" style={{ color: 'var(--accent)' }}>
               <RotateCcw className="size-3" /> Refresh
             </button>
           </div>
@@ -454,9 +525,17 @@ export function AdminPanel() {
             />
           ))}
         </div>
+
+        {hasMoreRecords && (
+          <button onClick={() => loadRecordPage(recordsOffset)} disabled={isLoadingRecords}
+            className="mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-40"
+            style={{ background: 'rgba(18,45,69,0.06)', color: 'var(--ink)' }}>
+            {isLoadingRecords ? <><Loader2 className="inline size-3.5 animate-spin mr-1.5" />Loading…</> : `Load more (${recordsTotal - recordsOffset} remaining)`}
+          </button>
+        )}
       </div>
 
-      {/* Reporter directory */}
+      {/* Reporter directory — lazy-loaded, 50 per page */}
       <div className="rounded-2xl p-5" style={glass.card}>
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -467,9 +546,10 @@ export function AdminPanel() {
             {isLoadingReporters && <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--subtle)' }} />}
             <span className="rounded-full px-2.5 py-0.5 text-xs font-bold"
               style={{ background: 'rgba(26,128,71,0.12)', color: 'var(--success)' }}>
-              {allReporters.length}
+              {reportersTotal !== null ? `${allReporters.length}/${reportersTotal}` : '…'}
             </span>
-            <button onClick={loadReporters} className="flex items-center gap-1 text-xs" style={{ color: 'var(--accent)' }}>
+            <button onClick={() => { setReportersOffset(0); loadReporterPage(0, true) }}
+              className="flex items-center gap-1 text-xs" style={{ color: 'var(--accent)' }}>
               <RotateCcw className="size-3" /> Refresh
             </button>
           </div>
@@ -509,6 +589,14 @@ export function AdminPanel() {
             />
           ))}
         </div>
+
+        {hasMoreReporters && (
+          <button onClick={() => loadReporterPage(reportersOffset)} disabled={isLoadingReporters}
+            className="mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-40"
+            style={{ background: 'rgba(18,45,69,0.06)', color: 'var(--ink)' }}>
+            {isLoadingReporters ? <><Loader2 className="inline size-3.5 animate-spin mr-1.5" />Loading…</> : `Load more (${reportersTotal - reportersOffset} remaining)`}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -591,9 +679,7 @@ function RecordCard({
 
       {expanded && (
         <div className="mt-3 flex flex-col gap-2 text-xs">
-          {record.description && (
-            <p style={{ color: 'var(--muted)' }}>{record.description}</p>
-          )}
+          {record.description && <p style={{ color: 'var(--muted)' }}>{record.description}</p>}
           {record.evidenceUrl && (
             <a href={record.evidenceUrl} target="_blank" rel="noreferrer"
               className="flex items-center gap-1" style={{ color: 'var(--accent)' }}>

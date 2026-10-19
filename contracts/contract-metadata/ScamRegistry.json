@@ -1,13 +1,27 @@
 {
-  "contractAddress": "0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957",
+  "contractAddress": "0x80d0263b9f6151b6257ca29b03fb2460d21d5d7a",
   "network": "ARC-TESTNET",
   "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
   "contract_code_path": "/home/user/app/contracts/ScamRegistry.sol",
   "contract_compiled_code_path": "/home/user/app/contracts/out/ScamRegistry.sol/ScamRegistry.json",
   "contract_network_and_links": {
-    "Arc Testnet": "https://explorer.testnet.arc.io/address/0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957"
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x80d0263b9f6151b6257ca29b03fb2460d21d5d7a"
   },
   "contract_deployments": [
+    {
+      "chain": "Arc Testnet",
+      "address": "0x80d0263b9f6151b6257ca29b03fb2460d21d5d7a",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x80d0263b9f6151b6257ca29b03fb2460d21d5d7a",
+      "txHash": "0x45db52c0430c45feede0f14528727cd73df516d2076d8244447d1d83012abfd8",
+      "deployedAt": "2026-10-19T09:57:07.559Z"
+    },
+    {
+      "chain": "Arc Testnet",
+      "address": "0xa93a6225c727e5e00924d4c2538caa1217e8be53",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0xa93a6225c727e5e00924d4c2538caa1217e8be53",
+      "txHash": "0xde7467e6ab3e7360a8becc7d29adc2c609b32d880260526fbabbb66967719966",
+      "deployedAt": "2026-10-19T07:58:20.572Z"
+    },
     {
       "chain": "Arc Testnet",
       "address": "0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957",
@@ -357,6 +371,35 @@
     },
     {
       "type": "function",
+      "name": "getReporterListPaginated",
+      "inputs": [
+        {
+          "name": "offset",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "limit",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "page",
+          "type": "address[]",
+          "internalType": "address[]"
+        },
+        {
+          "name": "total",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "handleIndex",
       "inputs": [
         {
@@ -692,6 +735,19 @@
     },
     {
       "type": "function",
+      "name": "setDeveloper",
+      "inputs": [
+        {
+          "name": "newDeveloper",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "setLookupFee",
       "inputs": [
         {
@@ -799,6 +855,25 @@
         }
       ],
       "stateMutability": "view"
+    },
+    {
+      "type": "event",
+      "name": "DeveloperUpdated",
+      "inputs": [
+        {
+          "name": "oldDeveloper",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newDeveloper",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
     },
     {
       "type": "event",
@@ -1057,6 +1132,11 @@
     {
       "type": "error",
       "name": "InvalidFee",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotDeveloper",
       "inputs": []
     },
     {
