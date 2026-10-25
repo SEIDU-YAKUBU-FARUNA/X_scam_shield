@@ -1,13 +1,34 @@
 {
-  "contractAddress": "0x80d0263b9f6151b6257ca29b03fb2460d21d5d7a",
+  "contractAddress": "0x985a2cd0a3c27264d15437917eb1b937e7cba965",
   "network": "ARC-TESTNET",
   "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
   "contract_code_path": "/home/user/app/contracts/ScamRegistry.sol",
   "contract_compiled_code_path": "/home/user/app/contracts/out/ScamRegistry.sol/ScamRegistry.json",
   "contract_network_and_links": {
-    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x80d0263b9f6151b6257ca29b03fb2460d21d5d7a"
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0x985a2cd0a3c27264d15437917eb1b937e7cba965"
   },
   "contract_deployments": [
+    {
+      "chain": "Arc Testnet",
+      "address": "0x985a2cd0a3c27264d15437917eb1b937e7cba965",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0x985a2cd0a3c27264d15437917eb1b937e7cba965",
+      "txHash": "0x577075dbb0f4d1a38c0cdfe17c8e572859698bb4e61640cc455a75fa4dbb2f74",
+      "deployedAt": "2026-10-25T10:53:20.626Z"
+    },
+    {
+      "chain": "Arc Testnet",
+      "address": "0xd262e55299d42c2584c5e3d970e8b3cbd6061fce",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0xd262e55299d42c2584c5e3d970e8b3cbd6061fce",
+      "txHash": "0xfb9b38932353f33ff9cd9424f05cd5ae967c65255975caf2527d485181fbb50f",
+      "deployedAt": "2026-10-24T08:45:03.784Z"
+    },
+    {
+      "chain": "Arc Testnet",
+      "address": "0xd94ec25d32c377a1344ba283493fc691507c5ab4",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0xd94ec25d32c377a1344ba283493fc691507c5ab4",
+      "txHash": "0x6a8674e9d3c62ef9f6f3c14d4ec2cb178ee5ae05c393d0112e571a1acd5d61fa",
+      "deployedAt": "2026-10-21T00:46:45.698Z"
+    },
     {
       "chain": "Arc Testnet",
       "address": "0x80d0263b9f6151b6257ca29b03fb2460d21d5d7a",
@@ -151,6 +172,16 @@
           "name": "timestamp",
           "type": "uint256",
           "internalType": "uint256"
+        },
+        {
+          "name": "status",
+          "type": "uint8",
+          "internalType": "enum ScamRegistry.RecordStatus"
+        },
+        {
+          "name": "corroborationCount",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"
@@ -203,6 +234,103 @@
     },
     {
       "type": "function",
+      "name": "getCorroborations",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple[]",
+          "internalType": "struct ScamRegistry.Corroboration[]",
+          "components": [
+            {
+              "name": "reporter",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "reporterHandle",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "reporterProfileUrl",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "timestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getCorroborationsPaginated",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "offset",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "limit",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "page",
+          "type": "tuple[]",
+          "internalType": "struct ScamRegistry.Corroboration[]",
+          "components": [
+            {
+              "name": "reporter",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "reporterHandle",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "reporterProfileUrl",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "timestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        },
+        {
+          "name": "total",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "getRecordByKey",
       "inputs": [
         {
@@ -224,6 +352,11 @@
             },
             {
               "name": "walletAddress",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "profileLink",
               "type": "string",
               "internalType": "string"
             },
@@ -251,6 +384,16 @@
               "name": "active",
               "type": "bool",
               "internalType": "bool"
+            },
+            {
+              "name": "status",
+              "type": "uint8",
+              "internalType": "enum ScamRegistry.RecordStatus"
+            },
+            {
+              "name": "corroborationCount",
+              "type": "uint256",
+              "internalType": "uint256"
             }
           ]
         }
@@ -328,6 +471,11 @@
             },
             {
               "name": "handle",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "profileUrl",
               "type": "string",
               "internalType": "string"
             },
@@ -449,6 +597,11 @@
               "internalType": "string"
             },
             {
+              "name": "profileLink",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
               "name": "evidenceUrl",
               "type": "string",
               "internalType": "string"
@@ -472,6 +625,16 @@
               "name": "active",
               "type": "bool",
               "internalType": "bool"
+            },
+            {
+              "name": "status",
+              "type": "uint8",
+              "internalType": "enum ScamRegistry.RecordStatus"
+            },
+            {
+              "name": "corroborationCount",
+              "type": "uint256",
+              "internalType": "uint256"
             }
           ]
         }
@@ -563,6 +726,11 @@
           "name": "handle",
           "type": "string",
           "internalType": "string"
+        },
+        {
+          "name": "profileUrl",
+          "type": "string",
+          "internalType": "string"
         }
       ],
       "outputs": [],
@@ -586,6 +754,11 @@
         },
         {
           "name": "walletAddress",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "profileLink",
           "type": "string",
           "internalType": "string"
         },
@@ -644,6 +817,11 @@
           "internalType": "string"
         },
         {
+          "name": "profileUrl",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
           "name": "registered",
           "type": "bool",
           "internalType": "bool"
@@ -688,6 +866,11 @@
           "internalType": "string"
         },
         {
+          "name": "profileLink",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
           "name": "evidenceUrl",
           "type": "string",
           "internalType": "string"
@@ -711,6 +894,16 @@
           "name": "active",
           "type": "bool",
           "internalType": "bool"
+        },
+        {
+          "name": "status",
+          "type": "uint8",
+          "internalType": "enum ScamRegistry.RecordStatus"
+        },
+        {
+          "name": "corroborationCount",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ],
       "stateMutability": "view"
@@ -754,6 +947,24 @@
           "name": "newFee",
           "type": "uint256",
           "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setRecordStatus",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "status",
+          "type": "uint8",
+          "internalType": "enum ScamRegistry.RecordStatus"
         }
       ],
       "outputs": [],
@@ -940,6 +1151,31 @@
     },
     {
       "type": "event",
+      "name": "RecordStatusUpdated",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "status",
+          "type": "uint8",
+          "indexed": false,
+          "internalType": "enum ScamRegistry.RecordStatus"
+        },
+        {
+          "name": "updatedBy",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "ReporterBanned",
       "inputs": [
         {
@@ -1007,6 +1243,31 @@
         },
         {
           "name": "amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ScamCorroborated",
+      "inputs": [
+        {
+          "name": "key",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "reporter",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "totalCorroborations",
           "type": "uint256",
           "indexed": false,
           "internalType": "uint256"
@@ -1126,12 +1387,17 @@
     },
     {
       "type": "error",
-      "name": "AlreadyReported",
+      "name": "AlreadyRegistered",
       "inputs": []
     },
     {
       "type": "error",
       "name": "InvalidFee",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotAdmin",
       "inputs": []
     },
     {

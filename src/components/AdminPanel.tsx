@@ -1,13 +1,28 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi'
-import { createPublicClient, http, defineChain } from 'viem'
+import { createPublicClient, http } from 'viem'
 import { ConnectKitButton } from 'connectkit'
-import { Shield, Loader2, CheckCircle, AlertTriangle, Users, DollarSign, Wallet, Trash2, ChevronDown, ChevronUp, ExternalLink, RotateCcw } from 'lucide-react'
+import { Shield, Loader2, CheckCircle, AlertTriangle, Users, DollarSign, Wallet, Trash2, ChevronDown, ChevronUp, ExternalLink, RotateCcw, Clock, Eye, Search, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { SCAM_REGISTRY_ABI, SCAM_REGISTRY_ADDRESS } from '../contracts'
-import { formatUsdc, parseUsdc } from '../onchain-money'
-import { requireChain, buildTxExplorerUrl } from '../onchain-facts'
-import { ACTIVE_CHAIN_ID, NETWORK_LABEL } from '../config'
+import { SCAM_REGISTRY_ABI, SCAM_REGISTRY_ADDRESS, USDC_DECIMALS } from '../contracts'
+import { ACTIVE_CHAIN_ID, NETWORK_LABEL, ARC_MAINNET_CHAIN_ID } from '../config'
+
+type RecordStatusValue = 0 | 1 | 2
+
+const EXPLORER_TX = ACTIVE_CHAIN_ID === ARC_MAINNET_CHAIN_ID
+  ? 'https://explorer.arc.io/tx/'
+  : 'https://explorer.testnet.arc.io/tx/'
+
+const ARC_RPC_URL = ACTIVE_CHAIN_ID === ARC_MAINNET_CHAIN_ID
+  ? 'https://rpc.mainnet.arc.io'
+  : 'https://rpc.testnet.arc.io'
+
+function formatUsdc(raw: bigint): string {
+  return (Number(raw) / 10 ** USDC_DECIMALS).toFixed(2)
+}
+function parseUsdc(val: string): bigint {
+  return BigInt(Math.round(parseFloat(val) * 10 ** USDC_DECIMALS))
+}
 
 const PAGE_SIZE = 50n
 
@@ -31,6 +46,7 @@ const glass = {
 interface ReporterEntry {
   wallet: string
   handle: string
+  profileUrl: string
   registered: boolean
   banned: boolean
   totalSubmissions: bigint
@@ -40,27 +56,24 @@ interface ReporterEntry {
 interface ScamRecord {
   xHandle: string
   walletAddress: string
+  profileLink: string
   evidenceUrl: string
   description: string
   reporter: string
   timestamp: bigint
   active: boolean
+  status: number  // 0=Reported, 1=UnderReview, 2=Verified
+  corroborationCount: bigint
 }
 
 interface RecordWithKey extends ScamRecord {
   key: `0x${string}`
   reporterHandle?: string
+  reporterProfileUrl?: string  // Reporter's own X profile link (fetched from getReporter)
 }
 
 function getPublicClient() {
-  const fact = requireChain(ACTIVE_CHAIN_ID)
-  const viemChain = defineChain({
-    id: fact.chainId,
-    name: fact.name,
-    nativeCurrency: { name: fact.nativeCurrency.symbol, symbol: fact.nativeCurrency.symbol, decimals: fact.nativeCurrency.decimals },
-    rpcUrls: { default: { http: fact.rpcUrls as [string, ...string[]] } },
-  })
-  return createPublicClient({ chain: viemChain, transport: http(fact.rpcUrls[0]) })
+  return createPublicClient({ transport: http(ARC_RPC_URL) })
 }
 
 export function AdminPanel() {
@@ -75,6 +88,12 @@ export function AdminPanel() {
   const [pendingBanWallet, setPendingBanWallet] = useState<string | null>(null)
   const [pendingDeactivateKey, setPendingDeactivateKey] = useState<string | null>(null)
   const [pendingReactivateKey, setPendingReactivateKey] = useState<string | null>(null)
+  const [pendingStatusKey, setPendingStatusKey] = useState<string | null>(null)
+
+  // Admin record search
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchState, setSearchState] = useState<'idle' | 'searching' | 'found' | 'not-found'>('idle')
+  const [searchedRecord, setSearchedRecord] = useState<RecordWithKey | null>(null)
 
   // Records: lazy-loaded page by page
   const allRecordsRef = useRef<RecordWithKey[]>([])
@@ -139,6 +158,9 @@ export function AdminPanel() {
   const { writeContract: reactivate, data: reactivateTxHash, isPending: isReactivatePending, error: reactivateError } = useWriteContract()
   const { isLoading: isReactivateConfirming, isSuccess: isReactivateSuccess } = useWaitForTransactionReceipt({ hash: reactivateTxHash })
 
+  const { writeContract: setStatus, data: statusTxHash, isPending: isStatusPending, error: statusError } = useWriteContract()
+  const { isLoading: isStatusConfirming, isSuccess: isStatusSuccess } = useWaitForTransactionReceipt({ hash: statusTxHash })
+
   // ── Lazy record loader — fetches one page (PAGE_SIZE) at a time ─────
   const loadRecordPage = useCallback((offset: number, reset = false) => {
     setIsLoadingRecords(true)
@@ -160,14 +182,20 @@ export function AdminPanel() {
             functionName: 'getRecordByKey', args: [key],
           }) as ScamRecord
           let reporterHandle: string | undefined
+          let reporterProfileUrl: string | undefined
           try {
+            // Load the reporter's registered identity so the admin can see
+            // who submitted this report — their handle and their X profile link
             const r = await client.readContract({
               address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
               functionName: 'getReporter', args: [rec.reporter as `0x${string}`],
             }) as ReporterEntry
-            if (r.registered) reporterHandle = r.handle
+            if (r.registered) {
+              reporterHandle = r.handle
+              reporterProfileUrl = r.profileUrl
+            }
           } catch { /* ignore */ }
-          return { ...rec, key, reporterHandle }
+          return { ...rec, key, reporterHandle, reporterProfileUrl }
         }))
 
         // Sort newest-first within this batch then merge
@@ -261,6 +289,11 @@ export function AdminPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (isReactivateSuccess) { toast.success('Record reactivated!'); loadRecordPage(0, true); setRecordsOffset(0) } }, [isReactivateSuccess])
 
+  // Status effect
+  useEffect(() => { if (isStatusSuccess || statusError) setPendingStatusKey(null) }, [isStatusSuccess, statusError])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (isStatusSuccess) { toast.success('Record status updated!'); loadRecordPage(0, true); setRecordsOffset(0) } }, [isStatusSuccess])
+
   // Error toasts
   useEffect(() => { if (feeError) toast.error(feeError.message.split('\n')[0].slice(0, 100)) }, [feeError])
   useEffect(() => { if (treasError) toast.error(treasError.message.split('\n')[0].slice(0, 100)) }, [treasError])
@@ -268,6 +301,7 @@ export function AdminPanel() {
   useEffect(() => { if (banError) toast.error(banError.message.split('\n')[0].slice(0, 100)) }, [banError])
   useEffect(() => { if (deactivateError) toast.error(deactivateError.message.split('\n')[0].slice(0, 100)) }, [deactivateError])
   useEffect(() => { if (reactivateError) toast.error(reactivateError.message.split('\n')[0].slice(0, 100)) }, [reactivateError])
+  useEffect(() => { if (statusError) toast.error(statusError.message.split('\n')[0].slice(0, 100)) }, [statusError])
 
   const formattedFee     = lookupFeeRaw ? formatUsdc(lookupFeeRaw) : '—'
   const formattedRevenue = totalRevenueRaw ? formatUsdc(totalRevenueRaw) : '0.00'
@@ -319,6 +353,69 @@ export function AdminPanel() {
     if (!window.confirm(`Reactivate report for @${xHandle}? It will appear in search results again.`)) return
     setPendingReactivateKey(key)
     reactivate({ address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI, functionName: 'reactivateRecord', args: [key], chainId: ACTIVE_CHAIN_ID })
+  }
+
+  const handleSetStatus = (key: `0x${string}`, newStatus: RecordStatusValue) => {
+    if (isWrongChain) { switchChain({ chainId: ACTIVE_CHAIN_ID }); return }
+    setPendingStatusKey(key)
+    setStatus({
+      address: SCAM_REGISTRY_ADDRESS,
+      abi: SCAM_REGISTRY_ABI,
+      functionName: 'setRecordStatus',
+      args: [key, newStatus],
+      chainId: ACTIVE_CHAIN_ID,
+    })
+  }
+
+  const handleAdminSearch = async () => {
+    const q = searchQuery.trim().replace(/^@+/, '').toLowerCase()
+    if (!q) return
+    setSearchState('searching')
+    setSearchedRecord(null)
+    const client = getPublicClient()
+    try {
+      const result = await client.readContract({
+        address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
+        functionName: 'checkExists', args: [q],
+      }) as [boolean, `0x${string}`, bigint, number, bigint]
+      if (!result[0]) { setSearchState('not-found'); return }
+      // Get the record key via handleIndex or walletIndex
+      let key = await client.readContract({
+        address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
+        functionName: 'handleIndex', args: [q],
+      })
+      const ZERO = '0x0000000000000000000000000000000000000000000000000000000000000000'
+      if (!key || key === ZERO) {
+        key = await client.readContract({
+          address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
+          functionName: 'walletIndex', args: [q],
+        })
+      }
+      if (!key || key === ZERO) { setSearchState('not-found'); return }
+      const rec = await client.readContract({
+        address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
+        functionName: 'getRecordByKey', args: [key],
+      }) as ScamRecord
+      let reporterHandle: string | undefined
+      let reporterProfileUrl: string | undefined
+      try {
+        // Fetch reporter identity so admin can see who submitted this report
+        const r = await client.readContract({
+          address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI,
+          functionName: 'getReporter', args: [rec.reporter as `0x${string}`],
+        }) as ReporterEntry
+        if (r.registered) {
+          reporterHandle = r.handle
+          reporterProfileUrl = r.profileUrl
+        }
+      } catch { /* ignore */ }
+      setSearchedRecord({ ...rec, key, reporterHandle, reporterProfileUrl })
+      setSearchState('found')
+    } catch (e) {
+      toast.error('Search failed. Try again.')
+      console.error(e)
+      setSearchState('idle')
+    }
   }
 
   // ── Gate screens ──────────────────────────────────────────────────
@@ -487,6 +584,76 @@ export function AdminPanel() {
         )}
       </div>
 
+      {/* Admin record search */}
+      <div className="rounded-2xl p-5" style={glass.card}>
+        <div className="mb-3 flex items-center gap-2">
+          <Search className="size-4" style={{ color: 'var(--accent)' }} />
+          <span className="display text-sm font-bold" style={{ color: 'var(--ink)' }}>Search & Classify a Record</span>
+        </div>
+        <p className="mb-3 text-xs" style={{ color: 'var(--muted)' }}>
+          Search by X handle or wallet address to find a specific record and classify it directly.
+        </p>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2" style={{ color: 'var(--subtle)' }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setSearchState('idle'); setSearchedRecord(null) }}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleAdminSearch() }}
+              placeholder="@handle or 0x wallet address"
+              className="w-full rounded-xl py-3 pl-9 pr-4 text-sm outline-none"
+              style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(18,45,69,0.12)', color: 'var(--ink)' }}
+            />
+          </div>
+          <button
+            onClick={() => void handleAdminSearch()}
+            disabled={!searchQuery.trim() || searchState === 'searching'}
+            className="flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ background: 'var(--accent)' }}>
+            {searchState === 'searching' ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+            {searchState === 'searching' ? 'Searching…' : 'Search'}
+          </button>
+        </div>
+
+        {/* No result */}
+        {searchState === 'not-found' && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl px-4 py-3"
+            style={{ background: 'rgba(18,45,69,0.05)', border: '1px solid rgba(18,45,69,0.1)' }}>
+            <XCircle className="size-4 shrink-0" style={{ color: 'var(--subtle)' }} />
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>
+              No active record found for <span className="mono font-medium" style={{ color: 'var(--ink)' }}>{searchQuery}</span>
+            </p>
+          </div>
+        )}
+
+        {/* Found record — full RecordCard with classify/delete/reactivate */}
+        {searchState === 'found' && searchedRecord && (
+          <div className="mt-3">
+            <RecordCard
+              record={searchedRecord}
+              onDeactivate={(key, handle) => {
+                handleDeactivate(key, handle)
+                setSearchedRecord(prev => prev ? { ...prev, active: false } : prev)
+              }}
+              onReactivate={(key, handle) => {
+                handleReactivate(key, handle)
+                setSearchedRecord(prev => prev ? { ...prev, active: true } : prev)
+              }}
+              onSetStatus={(key, newStatus) => {
+                handleSetStatus(key, newStatus)
+                setSearchedRecord(prev => prev ? { ...prev, status: newStatus } : prev)
+              }}
+              isThisDeactivateBusy={pendingDeactivateKey === searchedRecord.key && (isDeactivatePending || isDeactivateConfirming)}
+              isThisReactivateBusy={pendingReactivateKey === searchedRecord.key && (isReactivatePending || isReactivateConfirming)}
+              isThisStatusBusy={pendingStatusKey === searchedRecord.key && (isStatusPending || isStatusConfirming)}
+              deactivateTxHash={pendingDeactivateKey === searchedRecord.key ? deactivateTxHash : undefined}
+              reactivateTxHash={pendingReactivateKey === searchedRecord.key ? reactivateTxHash : undefined}
+            />
+          </div>
+        )}
+      </div>
+
       {/* All records — lazy-loaded, 50 per page */}
       <div className="rounded-2xl p-5" style={glass.card}>
         <div className="mb-3 flex items-center justify-between">
@@ -518,8 +685,10 @@ export function AdminPanel() {
               record={rec}
               onDeactivate={handleDeactivate}
               onReactivate={handleReactivate}
+              onSetStatus={handleSetStatus}
               isThisDeactivateBusy={pendingDeactivateKey === rec.key && (isDeactivatePending || isDeactivateConfirming)}
               isThisReactivateBusy={pendingReactivateKey === rec.key && (isReactivatePending || isReactivateConfirming)}
+              isThisStatusBusy={pendingStatusKey === rec.key && (isStatusPending || isStatusConfirming)}
               deactivateTxHash={pendingDeactivateKey === rec.key ? deactivateTxHash : undefined}
               reactivateTxHash={pendingReactivateKey === rec.key ? reactivateTxHash : undefined}
             />
@@ -604,20 +773,31 @@ export function AdminPanel() {
 
 // ── Sub-components ────────────────────────────────────────────────────
 
+const STATUS_CONFIG: Record<number, { label: string; bg: string; color: string; border: string }> = {
+  0: { label: 'Reported', bg: 'rgba(180,83,9,0.09)', color: '#b45309', border: 'rgba(180,83,9,0.22)' },
+  1: { label: 'Under Review', bg: 'rgba(194,65,12,0.09)', color: '#c2410c', border: 'rgba(194,65,12,0.22)' },
+  2: { label: 'Verified', bg: 'rgba(186,43,76,0.09)', color: '#ba2b4c', border: 'rgba(186,43,76,0.22)' },
+}
+
 function RecordCard({
-  record, onDeactivate, onReactivate, isThisDeactivateBusy, isThisReactivateBusy, deactivateTxHash, reactivateTxHash,
+  record, onDeactivate, onReactivate, onSetStatus,
+  isThisDeactivateBusy, isThisReactivateBusy, isThisStatusBusy,
+  deactivateTxHash, reactivateTxHash,
 }: {
   record: RecordWithKey
   onDeactivate: (key: `0x${string}`, handle: string) => void
   onReactivate: (key: `0x${string}`, handle: string) => void
+  onSetStatus: (key: `0x${string}`, status: RecordStatusValue) => void
   isThisDeactivateBusy: boolean
   isThisReactivateBusy: boolean
+  isThisStatusBusy: boolean
   deactivateTxHash?: `0x${string}`
   reactivateTxHash?: `0x${string}`
 }) {
   const [expanded, setExpanded] = useState(false)
-  const deactivateTxUrl = deactivateTxHash ? buildTxExplorerUrl(ACTIVE_CHAIN_ID, deactivateTxHash) : undefined
-  const reactivateTxUrl = reactivateTxHash ? buildTxExplorerUrl(ACTIVE_CHAIN_ID, reactivateTxHash) : undefined
+  const deactivateTxUrl = deactivateTxHash ? `${EXPLORER_TX}${deactivateTxHash}` : undefined
+  const reactivateTxUrl = reactivateTxHash ? `${EXPLORER_TX}${reactivateTxHash}` : undefined
+  const statusCfg = STATUS_CONFIG[record.status] ?? STATUS_CONFIG[0]
 
   return (
     <div className="rounded-xl p-4"
@@ -631,10 +811,19 @@ function RecordCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>@{record.xHandle}</span>
+            {/* Active/Deactivated badge */}
             {record.active
               ? <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: 'rgba(26,128,71,0.1)', color: 'var(--success)' }}>Active</span>
               : <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: 'rgba(186,43,76,0.1)', color: 'var(--danger)' }}>Deactivated</span>
             }
+            {/* Status badge */}
+            <span className="rounded-full px-2 py-0.5 text-xs font-semibold flex items-center gap-1"
+              style={{ background: statusCfg.bg, color: statusCfg.color, border: `1px solid ${statusCfg.border}` }}>
+              {record.status === 0 && <AlertTriangle className="size-2.5" />}
+              {record.status === 1 && <Clock className="size-2.5" />}
+              {record.status === 2 && <Eye className="size-2.5" />}
+              {statusCfg.label}
+            </span>
             {record.walletAddress && (
               <span className="mono rounded px-1.5 py-0.5 text-xs" style={{ background: 'rgba(18,45,69,0.07)', color: 'var(--muted)' }}>
                 {record.walletAddress.slice(0, 6)}…{record.walletAddress.slice(-4)}
@@ -643,9 +832,19 @@ function RecordCard({
           </div>
           <p className="mt-1 text-xs" style={{ color: 'var(--subtle)' }}>
             Reported by:{' '}
-            <span className="font-semibold" style={{ color: 'var(--ink)' }}>
-              {record.reporterHandle ? `@${record.reporterHandle}` : 'unknown'}
-            </span>
+            {/* Show reporter's X handle as a clickable link to their profile */}
+            {record.reporterProfileUrl ? (
+              <a href={record.reporterProfileUrl} target="_blank" rel="noopener noreferrer"
+                className="font-semibold hover:underline inline-flex items-center gap-0.5"
+                style={{ color: 'var(--ink)' }}>
+                {record.reporterHandle ? `@${record.reporterHandle}` : 'unknown'}
+                <ExternalLink className="size-2.5 ml-0.5" />
+              </a>
+            ) : (
+              <span className="font-semibold" style={{ color: 'var(--ink)' }}>
+                {record.reporterHandle ? `@${record.reporterHandle}` : 'unknown'}
+              </span>
+            )}
             {' · '}
             <span className="mono">{record.reporter.slice(0, 6)}…{record.reporter.slice(-4)}</span>
             {' · '}
@@ -677,14 +876,55 @@ function RecordCard({
         </div>
       </div>
 
+      {/* Status classification buttons — only for active records */}
+      {record.active && (
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          <span className="text-xs" style={{ color: 'var(--subtle)' }}>Classify:</span>
+          {([
+            { status: 0 as RecordStatusValue, label: 'Reported', icon: <AlertTriangle className="size-3" /> },
+            { status: 1 as RecordStatusValue, label: 'Under Review', icon: <Clock className="size-3" /> },
+            { status: 2 as RecordStatusValue, label: 'Verify', icon: <Eye className="size-3" /> },
+          ]).map(({ status, label, icon }) => {
+            const isActive = record.status === status
+            const cfg = STATUS_CONFIG[status]
+            return (
+              <button
+                key={status}
+                onClick={() => !isActive && onSetStatus(record.key, status)}
+                disabled={isActive || isThisStatusBusy}
+                className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all disabled:cursor-default"
+                style={{
+                  background: isActive ? cfg.bg : 'rgba(18,45,69,0.05)',
+                  color: isActive ? cfg.color : 'var(--subtle)',
+                  border: `1px solid ${isActive ? cfg.border : 'rgba(18,45,69,0.1)'}`,
+                  opacity: isThisStatusBusy && !isActive ? 0.4 : 1,
+                }}>
+                {isThisStatusBusy && !isActive ? <Loader2 className="size-3 animate-spin" /> : icon}
+                {label}
+                {isActive && ' ✓'}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {expanded && (
         <div className="mt-3 flex flex-col gap-2 text-xs">
           {record.description && <p style={{ color: 'var(--muted)' }}>{record.description}</p>}
+          {record.profileLink && (
+            <a href={record.profileLink} target="_blank" rel="noreferrer"
+              className="flex items-center gap-1" style={{ color: 'var(--danger)' }}>
+              <ExternalLink className="size-3" /> View Scam Profile
+            </a>
+          )}
           {record.evidenceUrl && (
             <a href={record.evidenceUrl} target="_blank" rel="noreferrer"
               className="flex items-center gap-1" style={{ color: 'var(--accent)' }}>
               <ExternalLink className="size-3" /> Evidence link
             </a>
+          )}
+          {Number(record.corroborationCount) > 0 && (
+            <p style={{ color: 'var(--muted)' }}>{String(record.corroborationCount)} corroboration{Number(record.corroborationCount) !== 1 ? 's' : ''}</p>
           )}
           <p className="mono break-all" style={{ color: 'var(--subtle)' }}>Key: {record.key}</p>
           {deactivateTxUrl && (
@@ -729,6 +969,12 @@ function ReporterCard({
           <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
             {String(r.totalSubmissions)} reports · ${formatUsdc(r.totalRewardsEarned)} earned
           </p>
+          {r.profileUrl && (
+            <a href={r.profileUrl} target="_blank" rel="noreferrer"
+              className="flex items-center gap-1 text-xs mt-0.5" style={{ color: 'var(--accent)' }}>
+              <ExternalLink className="size-3" /> View X Profile
+            </a>
+          )}
         </div>
         <button onClick={() => onBan(r.wallet as `0x${string}`, r.banned)} disabled={isThisBanBusy}
           className="shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white transition-all hover:scale-[1.02] disabled:opacity-40"
