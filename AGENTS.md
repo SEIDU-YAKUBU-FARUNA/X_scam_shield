@@ -1,4 +1,4 @@
-# ArcShield — Decentralized Scam Registry
+# ArcShield — LIVE ON ARC MAINNET — Decentralized Scam Registry
 
 ## Project Overview
 Decentralized scam dictionary and verification marketplace.
@@ -24,8 +24,11 @@ Built entirely in Arc Studio for the Arc Microgrants competition.
 | v3 | Arc Testnet | `0x0d5e8fd24dc54d916bece0ad28119b71a70f85b1` | Deprecated |
 | v4 | Arc Testnet | `0x1e1617223e9576aa737ff44e2593b0481ae8588f` | Deprecated |
 | v5 | Arc Testnet | `0xc0a1f9c3eaf36e3cd36af13f7fef4275561ee957` | Deprecated |
-| v6 | Arc Testnet | `0xa93a6225c727e5e00924d4c2538caa1217e8be53` | **Active (testnet)** |
-| v1 | Arc Mainnet | (pending) | — |
+| v6 | Arc Testnet | `0xa93a6225c727e5e00924d4c2538caa1217e8be53` | Deprecated |
+| v1 | Arc Mainnet | `0xa06f9E8A1312aEE15837D02B543c800174Aacef4` | **LIVE** |
+
+**Mainnet deploy tx:** `0xf5e1c9db3360710152434bd9f90fc6919af87787b9a3a4ff8b0b9723e1c92315`
+**Explorer:** https://explorer.arc.io/address/0xa06f9E8A1312aEE15837D02B543c800174Aacef4
 
 ## Key Addresses
 - Owner / Treasury wallet (50% royalty): `0x7aDbb14b8dDF292AbFe9e7a28abc0433256f4048`

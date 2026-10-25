@@ -98,6 +98,7 @@ export function SearchPanel() {
   const [revealedRecord, setRevealedRecord] = useState<RevealedRecord | null>(null);
   const [corroborations, setCorroborations] = useState<Corroboration[]>([]);
   const [reporterHandle, setReporterHandle] = useState<string>('');
+  const [reporterProfileUrl, setReporterProfileUrl] = useState<string>('');
   const [lockedQuery, setLockedQuery] = useState('');
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -165,9 +166,10 @@ export function SearchPanel() {
           client.readContract({ address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI, functionName: 'getCorroborations', args: [key] }).catch(() => []) as Promise<Corroboration[]>,
         ]);
 
-        // Load reporter handle
-        const reporter = await client.readContract({ address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI, functionName: 'getReporter', args: [rec.reporter] }).catch(() => null) as { handle?: string } | null;
+        // Load reporter handle and profile URL so searchers can verify who made the report
+        const reporter = await client.readContract({ address: SCAM_REGISTRY_ADDRESS, abi: SCAM_REGISTRY_ABI, functionName: 'getReporter', args: [rec.reporter] }).catch(() => null) as { handle?: string; profileUrl?: string } | null;
         setReporterHandle(reporter?.handle ?? '');
+        setReporterProfileUrl(reporter?.profileUrl ?? '');
         setRevealedRecord(rec);
         setCorroborations(corrs);
         setPhase('revealed');
@@ -204,6 +206,7 @@ export function SearchPanel() {
     setRevealedRecord(null);
     setCorroborations([]);
     setReporterHandle('');
+    setReporterProfileUrl('');
     const q = query.trim();
 
     try {
@@ -295,6 +298,7 @@ export function SearchPanel() {
     setRevealedRecord(null);
     setCorroborations([]);
     setReporterHandle('');
+    setReporterProfileUrl('');
     setQuery('');
     setLockedQuery('');
     resetApprove();
@@ -469,11 +473,21 @@ export function SearchPanel() {
                 </a>
               </div>
             )}
+            {/* Reporter identity — show handle, wallet snippet, and link to their X profile */}
             <div>
-              <p className="text-xs font-medium text-gray-500 mb-0.5">Reported by</p>
-              <div className="flex items-center gap-1 text-xs text-gray-700">
-                <Shield size={11} className="text-gray-400" />
-                {reporterHandle ? `@${reporterHandle} · ` : ''}<span className="font-mono">{revealedRecord.reporter.slice(0, 6)}…{revealedRecord.reporter.slice(-4)}</span>
+              <p className="text-xs font-medium text-gray-500 mb-1">Reported by</p>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                  <Shield size={11} className="text-gray-400 flex-shrink-0" />
+                  {reporterHandle && <span className="font-semibold">@{reporterHandle}</span>}
+                  <span className="font-mono text-gray-500">{revealedRecord.reporter.slice(0, 6)}…{revealedRecord.reporter.slice(-4)}</span>
+                </div>
+                {reporterProfileUrl && (
+                  <a href={reporterProfileUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-blue-600 hover:underline text-xs w-fit">
+                    View Reporter Profile <ExternalLink size={11} />
+                  </a>
+                )}
               </div>
             </div>
           </div>
